@@ -152,7 +152,7 @@
 
   const matchesDialog = $('#matches-dialog');
   function openMatches(record) {
-    $('#matches-id').value = record.name; $('#matches-results').replaceChildren(); $('#matches-message').textContent = '此功能需要先在当前电脑启动 Akari 本机查询桥接程序，并授权本网站访问。查询结果仅展示，不自动修改天数。';
+    $('#matches-id').value = record.name; $('#matches-region').value = record.region; $('#matches-results').replaceChildren(); $('#matches-message').textContent = '请输入 Riot ID（游戏名#标签）。需要在当前电脑启动查询桥接程序并授权本网站访问，记录区服须与已登录客户端一致。结果仅供查看，不自动修改天数。';
     matchesDialog.showModal();
   }
   $('#matches-close').addEventListener('click', () => matchesDialog.close());
@@ -160,16 +160,17 @@
     event.preventDefault(); const button = $('#matches-submit'); button.disabled = true;
     $('#matches-message').textContent = '正在查询本机 Akari…'; $('#matches-results').replaceChildren();
     try {
-      const response = await fetch('http://127.0.0.1:8765/api/matches', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ riotId: $('#matches-id').value.trim() }), signal: AbortSignal.timeout(15000) });
+      const response = await fetch('http://127.0.0.1:8765/api/matches', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ riotId: $('#matches-id').value.trim(), region: $('#matches-region').value.trim() }), signal: AbortSignal.timeout(15000) });
       const data = await response.json(); if (!response.ok || !data.ok) throw new Error(data.error || `查询失败（${response.status}）`);
       if (!Array.isArray(data.matches)) throw new Error('战绩数据格式不正确');
-      $('#matches-message').textContent = `${data.reason || '已获取近期战绩'}。${data.complete ? '' : '结果可能不完整，不能据此自动计天。'}结束时间由开始时间和时长推算。`;
+      $('#matches-message').textContent = `${data.reason || '已获取近期战绩'}。近期查询不保证上游没有遗漏或延迟，也不能证明对局符合维护资格；不会自动修改天数。结束时间来自 SGP。`;
       if (!data.matches.length) $('#matches-results').append(element('p', 'match-empty', '没有返回近期战绩。'));
       data.matches.forEach((match) => {
         const row = element('div', 'match-row');
         const queue = match.queueId === 420 ? '单双排' : match.queueId === 440 ? '灵活组排' : `队列 ${String(match.queueId ?? '未知')}`;
-        const start = new Date(match.startedAt); const time = Number.isNaN(start.getTime()) ? '时间未知' : start.toLocaleString('zh-CN');
-        row.append(element('strong', '', queue), element('span', '', time), element('small', '', `对局 ${String(match.gameId ?? '未知')}`)); $('#matches-results').append(row);
+        const start = new Date(match.startedAt); const end = new Date(match.endedAt); const time = Number.isNaN(start.getTime()) ? '时间未知' : start.toLocaleString('zh-CN');
+        const endTime = Number.isNaN(end.getTime()) ? '未知' : end.toLocaleString('zh-CN');
+        row.append(element('strong', '', queue), element('span', '', `开始 ${time}`), element('small', '', `结束 ${endTime} · 结果 ${String(match.result ?? '未知')} · 对局 ${String(match.gameId ?? '未知')}`)); $('#matches-results').append(row);
       });
     } catch (error) { $('#matches-message').textContent = `无法查询战绩：${error.message}。请确认 Akari 已登录、本机桥接程序已启动并允许当前网站访问。`; }
     finally { button.disabled = false; }
