@@ -73,15 +73,20 @@ async function passwordRateLimit(request, db, username, register) {
   if (!ipAllowed) return false;
   return consumeLimit(db, `${action}:username:${username}`, register ? 5 : 10, windowMs);
 }
-async function issueSession(db, ownerId, provider, username, json2, status = 200) {
-  const accessToken = `swa_${randomValue()}`, now = Date.now(), expiresAt = now + SESSION_TTL_MS;
-  await db.prepare("DELETE FROM auth_sessions WHERE expires_at<=?").bind(now).run();
+async function issueSession(db, ownerId, provider, username, json2, status = 200, rememberMe = false) {
+  const accessToken = `swa_${randomValue()}`, now = Date.now(), expiresAt = rememberMe ? 0 : now + SESSION_TTL_MS;
+  await db.prepare("DELETE FROM auth_sessions WHERE expires_at>0 AND expires_at<=?").bind(now).run();
   await db.prepare(
     "INSERT INTO auth_sessions (token_hash,owner_id,created_at,expires_at) VALUES (?,?,?,?)"
   ).bind(await hashSecret(accessToken), ownerId, now, expiresAt).run();
   const user = { id: ownerId, provider, ...username ? { username } : {} };
   return json2(
-    { accessToken, tokenType: "Bearer", expiresAt: new Date(expiresAt).toISOString(), user },
+    {
+      accessToken,
+      tokenType: "Bearer",
+      expiresAt: expiresAt === 0 ? null : new Date(expiresAt).toISOString(),
+      user
+    },
     status
   );
 }
@@ -119,7 +124,7 @@ async function authenticate(request, db) {
   const sessionHash = await hashSecret(match[1]);
   const session = await db.prepare(
     `SELECT s.owner_id AS ownerId, s.expires_at AS expiresAt, u.provider, u.username
-    FROM auth_sessions s JOIN auth_users u ON u.id=s.owner_id WHERE s.token_hash=? AND s.expires_at>?`
+    FROM auth_sessions s JOIN auth_users u ON u.id=s.owner_id WHERE s.token_hash=? AND (s.expires_at=0 OR s.expires_at>?)`
   ).bind(sessionHash, Date.now()).first();
   return session ? { ...session, sessionHash } : null;
 }
@@ -173,7 +178,7 @@ async function authRoute(request, env, path, { json: json2, error: error2, readB
         provider: session.provider,
         ...session.username ? { username: session.username } : {}
       },
-      expiresAt: new Date(session.expiresAt).toISOString()
+      expiresAt: session.expiresAt === 0 ? null : new Date(session.expiresAt).toISOString()
     });
   }
   if ((path === "/api/auth/register" || path === "/api/auth/login") && request.method === "POST") {
@@ -193,7 +198,7 @@ async function authRoute(request, env, path, { json: json2, error: error2, readB
       ).bind(id, username, salt, hash2, PASSWORD_ITERATIONS, Date.now()).run();
       if (!inserted.meta?.changes)
         return error2(409, "username_taken", "\u8BE5\u7528\u6237\u540D\u5DF2\u88AB\u4F7F\u7528\uFF0C\u8BF7\u6362\u4E00\u4E2A\u3002");
-      return issueSession(env.DB, id, "password", username, json2, 201);
+      return issueSession(env.DB, id, "password", username, json2, 201, body.rememberMe === true);
     }
     const user = await env.DB.prepare(
       `SELECT id,username,password_salt AS salt,password_hash AS passwordHash,password_iterations AS iterations
@@ -206,7 +211,15 @@ async function authRoute(request, env, path, { json: json2, error: error2, readB
     );
     if (!user || user.iterations !== PASSWORD_ITERATIONS || !sameHash(hash, user.passwordHash))
       return error2(401, "invalid_credentials", "\u7528\u6237\u540D\u6216\u5BC6\u7801\u9519\u8BEF\u3002");
-    return issueSession(env.DB, user.id, "password", user.username, json2);
+    return issueSession(
+      env.DB,
+      user.id,
+      "password",
+      user.username,
+      json2,
+      200,
+      body.rememberMe === true
+    );
   }
   const config = authConfig(env);
   if (!config) return error2(503, "setup_not_ready", "\u5FAE\u4FE1\u767B\u5F55\u5C1A\u672A\u5B8C\u6210\u914D\u7F6E\uFF0C\u8BF7\u8054\u7CFB\u7BA1\u7406\u5458\u3002");
@@ -225,7 +238,7 @@ async function authRoute(request, env, path, { json: json2, error: error2, readB
       return error2(429, "rate_limited", "\u5C1D\u8BD5\u6B21\u6570\u8FC7\u591A\uFF0C\u8BF7\u7A0D\u540E\u518D\u8BD5\u3002");
     }
     await env.DB.prepare("DELETE FROM auth_login_transactions WHERE expires_at<=?").bind(now).run();
-    await env.DB.prepare("DELETE FROM auth_sessions WHERE expires_at<=?").bind(now).run();
+    await env.DB.prepare("DELETE FROM auth_sessions WHERE expires_at>0 AND expires_at<=?").bind(now).run();
     await env.DB.prepare("DELETE FROM auth_oauth_codes WHERE expires_at<=?").bind(now).run();
     const loginId = randomValue(), state = randomValue(), expiresAt = now + LOGIN_TTL_MS;
     await env.DB.prepare(
