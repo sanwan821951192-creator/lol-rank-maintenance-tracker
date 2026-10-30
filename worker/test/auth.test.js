@@ -55,9 +55,9 @@ function request(path, method = 'GET', body, token, ip = '192.0.2.1') {
     ...(body === undefined ? {} : { body: JSON.stringify(body) })
   })
 }
-async function register(environment, username, ip = '192.0.2.1') {
+async function register(environment, username, ip = '192.0.2.1', rememberMe) {
   const response = await worker.fetch(
-    request('/api/auth/register', 'POST', { username, password: PASSWORD }, null, ip),
+    request('/api/auth/register', 'POST', { username, password: PASSWORD, rememberMe }, null, ip),
     environment
   )
   assert.equal(response.status, 201)
@@ -371,9 +371,153 @@ test('IP limit cannot be bypassed by changing usernames, including malformed req
   )
 })
 
-test('sessions expire and logout revokes only that session without requiring WeChat configuration', async () => {
+test('only boolean rememberMe true grants a permanent revocable password session on register and login', async () => {
+  for (const rememberMe of [true, false, undefined, 'true', 1, null, {}]) {
+    const environment = env()
+    const registered = await register(environment, 'remember-user', '192.0.2.1', rememberMe)
+    const response = await worker.fetch(
+      request('/api/auth/login', 'POST', {
+        username: 'remember-user',
+        password: PASSWORD,
+        rememberMe
+      }),
+      environment
+    )
+    assert.equal(response.status, 200)
+    const loggedIn = await response.json()
+    for (const session of [registered, loggedIn]) {
+      const stored = environment.DB.sqlite
+        .prepare('SELECT * FROM auth_sessions WHERE token_hash=?')
+        .get(hash(session.accessToken))
+      if (rememberMe === true) {
+        assert.equal(stored.expires_at, 0)
+        assert.equal(session.expiresAt, null)
+      } else {
+        assert.equal(stored.expires_at - stored.created_at, 2 * 60 * 60 * 1000)
+        assert.equal(session.expiresAt, new Date(stored.expires_at).toISOString())
+      }
+      assert.ok(!JSON.stringify(stored).includes(session.accessToken))
+      assert.ok(!JSON.stringify(stored).includes(PASSWORD))
+    }
+  }
+})
+
+test('permanent sessions survive future clocks and both cleanup paths while existing timed sessions keep their expiry', async (t) => {
+  let now = Date.now()
+  t.mock.method(Date, 'now', () => now)
+  const environment = env()
+  const short = await register(environment, 'lifetime-user')
+  const long = await (
+    await worker.fetch(
+      request('/api/auth/login', 'POST', {
+        username: 'lifetime-user',
+        password: PASSWORD,
+        rememberMe: true
+      }),
+      environment
+    )
+  ).json()
+  const shortExpiry = now + 2 * 60 * 60 * 1000
+  const legacyThirtyDay = await (
+    await worker.fetch(
+      request('/api/auth/login', 'POST', {
+        username: 'lifetime-user',
+        password: PASSWORD
+      }),
+      environment
+    )
+  ).json()
+  const legacyExpiry = now + 30 * 24 * 60 * 60 * 1000
+  environment.DB.sqlite
+    .prepare('UPDATE auth_sessions SET expires_at=? WHERE token_hash=?')
+    .run(legacyExpiry, hash(legacyThirtyDay.accessToken))
+  assert.equal(Date.parse(short.expiresAt), shortExpiry)
+  assert.equal(long.expiresAt, null)
+  assert.equal(
+    environment.DB.sqlite
+      .prepare('SELECT expires_at FROM auth_sessions WHERE token_hash=?')
+      .get(hash(short.accessToken)).expires_at,
+    shortExpiry
+  )
+  now = shortExpiry
+  assert.equal(
+    (
+      await worker.fetch(
+        request('/api/auth/session', 'GET', undefined, short.accessToken),
+        environment
+      )
+    ).status,
+    401
+  )
+  const restored = await worker.fetch(
+    request('/api/auth/session', 'GET', undefined, long.accessToken),
+    environment
+  )
+  assert.equal(restored.status, 200)
+  assert.equal((await restored.json()).expiresAt, long.expiresAt)
+  assert.equal(
+    (await worker.fetch(request('/api/accounts', 'GET', undefined, long.accessToken), environment))
+      .status,
+    200
+  )
+  assert.equal(
+    environment.DB.sqlite
+      .prepare('SELECT expires_at FROM auth_sessions WHERE token_hash=?')
+      .get(hash(long.accessToken)).expires_at,
+    0
+  )
+  const legacyCheck = await worker.fetch(
+    request('/api/auth/session', 'GET', undefined, legacyThirtyDay.accessToken),
+    environment
+  )
+  assert.equal(legacyCheck.status, 200)
+  assert.equal((await legacyCheck.json()).expiresAt, new Date(legacyExpiry).toISOString())
+  now = legacyExpiry
+  assert.equal(
+    (
+      await worker.fetch(
+        request('/api/auth/session', 'GET', undefined, legacyThirtyDay.accessToken),
+        environment
+      )
+    ).status,
+    401
+  )
+  now += 100 * 365 * 24 * 60 * 60 * 1000
+  // Password issuance and OAuth start both remove expired timed sessions, never the zero sentinel.
+  await register(environment, 'future-user', '192.0.2.2')
+  await start(environment)
+  assert.equal(
+    environment.DB.sqlite
+      .prepare('SELECT COUNT(*) AS n FROM auth_sessions WHERE token_hash IN (?,?)')
+      .get(hash(short.accessToken), hash(legacyThirtyDay.accessToken)).n,
+    0
+  )
+  assert.equal(
+    environment.DB.sqlite
+      .prepare('SELECT expires_at FROM auth_sessions WHERE token_hash=?')
+      .get(hash(long.accessToken)).expires_at,
+    0
+  )
+  assert.equal(
+    (
+      await worker.fetch(
+        request('/api/auth/session', 'GET', undefined, long.accessToken),
+        environment
+      )
+    ).status,
+    200
+  )
+  for (const path of ['/api/auth/session', '/api/accounts']) {
+    assert.equal(
+      (await worker.fetch(request(path, 'GET', undefined, long.accessToken), environment)).status,
+      200
+    )
+  }
+})
+
+test('logout revokes only the permanent session and ordinary sessions still expire without requiring WeChat configuration', async () => {
   const environment = { DB: database(), AUTH_PASSWORD_PEPPER: PEPPER }
-  const first = await register(environment, 'session-user')
+  const first = await register(environment, 'session-user', '192.0.2.1', true)
   const second = await (
     await worker.fetch(
       request('/api/auth/login', 'POST', { username: 'session-user', password: PASSWORD }),
@@ -422,8 +566,8 @@ test('sessions expire and logout revokes only that session without requiring WeC
 
 test('two users cannot read, export, edit, estimate or delete each others records or claim legacy rows', async () => {
   const environment = env(),
-    alice = await register(environment, 'alice'),
-    bob = await register(environment, 'bob')
+    alice = await register(environment, 'alice', '192.0.2.1', true),
+    bob = await register(environment, 'bob', '192.0.2.1', true)
   const created = await worker.fetch(
     request('/api/accounts', 'POST', accountInput, alice.accessToken),
     environment
@@ -574,11 +718,20 @@ test('OAuth callback uses provider identity, one-time state and PKCE-protected o
     'ready'
   )
   const exchanges = await Promise.all(
-    [1, 2].map(() => worker.fetch(request('/api/auth/wechat/exchange', 'POST', proof), environment))
+    [1, 2].map(() =>
+      worker.fetch(
+        request('/api/auth/wechat/exchange', 'POST', { ...proof, rememberMe: true }),
+        environment
+      )
+    )
   )
   assert.deepEqual(exchanges.map((response) => response.status).sort(), [200, 404])
   const session = await exchanges.find((response) => response.status === 200).json()
   assert.equal(session.user.provider, 'wechat')
+  const oauthSession = environment.DB.sqlite
+    .prepare('SELECT created_at,expires_at FROM auth_sessions WHERE token_hash=?')
+    .get(hash(session.accessToken))
+  assert.equal(oauthSession.expires_at - oauthSession.created_at, 2 * 60 * 60 * 1000)
   assert.equal(
     (
       await worker.fetch(
