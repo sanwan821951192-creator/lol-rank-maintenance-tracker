@@ -158,7 +158,7 @@
   $('#matches-close').addEventListener('click', () => matchesDialog.close());
   $('#matches-form').addEventListener('submit', async (event) => {
     event.preventDefault(); const button = $('#matches-submit'); button.disabled = true;
-    $('#matches-message').textContent = '正在查询本机 Akari…'; $('#matches-results').replaceChildren();
+    $('#matches-message').textContent = '正在通过本机英雄联盟客户端查询…'; $('#matches-results').replaceChildren();
     try {
       const response = await fetch('http://127.0.0.1:8765/api/matches', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ riotId: $('#matches-id').value.trim(), region: $('#matches-region').value.trim() }), signal: AbortSignal.timeout(15000) });
       const data = await response.json(); if (!response.ok || !data.ok) throw new Error(data.error || `查询失败（${response.status}）`);
@@ -172,7 +172,11 @@
         const endTime = Number.isNaN(end.getTime()) ? '未知' : end.toLocaleString('zh-CN');
         row.append(element('strong', '', queue), element('span', '', `开始 ${time}`), element('small', '', `结束 ${endTime} · 结果 ${String(match.result ?? '未知')} · 对局 ${String(match.gameId ?? '未知')}`)); $('#matches-results').append(row);
       });
-    } catch (error) { $('#matches-message').textContent = `无法查询战绩：${error.message}。请确认 Akari 已登录、本机桥接程序已启动并允许当前网站访问。`; }
+    } catch (error) {
+      $('#matches-message').textContent = error instanceof TypeError
+        ? '无法连接本机查询程序。请确认本机桥接程序已启动并允许当前网站访问；浏览器的本地网络限制也可能阻止连接。'
+        : `无法查询战绩：${error.message}。请检查英雄联盟客户端和本机桥接程序是否正常运行。`;
+    }
     finally { button.disabled = false; }
   });
   setConnection(false, '正在连接共享服务…'); render(); refresh();
