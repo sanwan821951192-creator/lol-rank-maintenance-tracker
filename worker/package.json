@@ -1,0 +1,12 @@
+{
+  "name": "lol-maintenance-worker",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "esbuild src/index.js --bundle --format=esm --platform=browser --target=es2022 --outfile=dist/worker.js",
+    "test": "node --test test/*.test.js"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.12"
+  }
+}
