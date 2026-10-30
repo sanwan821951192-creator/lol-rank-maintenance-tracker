@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#111b21">
+  <meta name="description" content="记录英雄联盟账号的维护天数，按日期查看估算剩余时间。">
+  <title>峡谷维护簿 | LOL 账号维护记录</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="config.js" defer></script>
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <div class="page">
+    <header class="topbar">
+      <a class="brand" href="#top" aria-label="峡谷维护簿首页"><span class="brand-mark">峡</span><span><strong>峡谷维护簿</strong><small>SUMMONER LOG</small></span></a>
+      <span class="top-note"><span class="live-dot"></span><span id="connection-status">共享服务未连接</span></span>
+    </header>
+
+    <main id="top">
+      <section class="intro">
+        <div class="intro-copy"><div class="eyebrow"><span>01 / ACCOUNT TRACKER</span><i></i><span>英雄联盟</span></div>
+          <h1>把每个账号的<br><em>维护时间</em>记清楚。</h1>
+          <p>集中记录游戏 ID 和剩余维护天数。按记录日期自动计算，打开页面就能看到需要关注的账号。</p>
+          <div class="hero-actions"><button type="button" class="button button-primary" id="add-account"><span class="plus">＋</span> 添加账号</button><a href="#accounts" class="text-link">查看账号 <span>↘</span></a></div>
+        </div>
+        <div class="hero-art" aria-hidden="true"><div class="orbit orbit-one"></div><div class="orbit orbit-two"></div><div class="hero-symbol"><span>✦</span></div><div class="art-caption"><span>KEEP YOUR<br>ACCOUNTS READY</span><b>✳</b></div><div class="art-index">DAILY<br>RECORD<br><strong>01—∞</strong></div></div>
+      </section>
+
+      <section class="notice" aria-label="使用说明"><div class="notice-icon">i</div><div><strong>共享账号记录 · 自动查询未接入</strong><p>剩余天数按记录日期和填写的天数估算。暂未接入 Akari 自动查询，打过维护后请手动更新；实际结果以游戏客户端为准。网站上的记录对所有访问者开放，请勿填写密码等敏感信息。</p></div></section>
+
+      <section class="overview" aria-label="账号概览"><div class="stat"><span>记录账号</span><strong id="total-count">00</strong><small>ACCOUNT LIST</small></div><div class="stat"><span>3 天内需关注</span><strong id="urgent-count">00</strong><small>NEED ATTENTION</small></div><div class="stat"><span>已到期 / 待确认</span><strong id="expired-count">00</strong><small>CHECK REQUIRED</small></div><div class="stat stat-date"><span>今天</span><strong id="today-date">—</strong><small>本地日期 · 每日自动变化</small></div></section>
+
+      <section class="account-section" id="accounts"><div class="section-head"><div><div class="eyebrow"><span>02 / YOUR ACCOUNTS</span><i></i><span>账号清单</span></div><h2>我的账号 <span id="list-count">0</span></h2><p>账号记录由共享服务保存，所有访问者都可以查看和修改。</p></div><div class="file-actions"><button class="button button-light" id="export-button" type="button">导出备份 ↗</button></div></div>
+      <div class="list-toolbar"><label class="search"><span aria-hidden="true">⌕</span><input id="search" type="search" placeholder="搜索游戏 ID 或区服" aria-label="搜索游戏 ID 或区服"></label><span id="result-count">共 0 个账号</span></div>
+      <div class="connection-alert" id="connection-alert" role="status">正在连接共享服务… <button type="button" class="retry" id="retry-connection">重试连接</button></div>
+      <div class="account-list" id="account-list" aria-live="polite"></div>
+      <div class="empty" id="empty-state"><div class="empty-icon">✦</div><strong>还没有账号记录</strong><p>先添加一个账号，维护时间就有地方可查了。</p><button type="button" class="button button-primary" id="empty-add">添加第一个账号 <span>↗</span></button></div>
+      <div class="no-results" id="no-results" hidden>没有找到匹配的账号，试试其他关键词。</div>
+      </section>
+    </main>
+    <footer><span>峡谷维护簿 <b>✦</b></span><span>简单记录，安心上分。</span><span>共享记录 · 请勿填写敏感信息</span></footer>
+  </div>
+  <dialog id="account-dialog"><form id="account-form"><div class="dialog-head"><div><div class="eyebrow">ACCOUNT DETAILS</div><h2 id="dialog-title">添加账号</h2></div><button type="button" class="close" id="close-dialog" aria-label="关闭">×</button></div><p class="dialog-intro">填写当前已知信息，之后可以随时修改。</p>
+    <label class="field">游戏 ID <span>*</span><input name="gameId" maxlength="100" required autocomplete="off" placeholder="例如：召唤师名称"></label>
+    <label class="field">区服 <span>*</span><input name="server" maxlength="50" required autocomplete="off" placeholder="例如：艾欧尼亚"></label>
+    <div class="field-grid"><label class="field">排位队列 <span>*</span><select name="queue" required><option>未知</option><option>单双排</option><option>灵活组排</option></select></label><label class="field">段位 <span>*</span><select name="tier" required><option>未知</option><option>钻石</option><option>大师及以上</option></select></label></div>
+    <div class="field-grid"><label class="field">当时剩余天数 <span>*</span><input name="days" type="number" min="0" max="365" step="1" required placeholder="例如：14"></label><label class="field">记录日期 <span>*</span><input name="recordedAt" type="date" required></label></div>
+    <label class="field">备注 <small>选填</small><input name="note" maxlength="300" autocomplete="off" placeholder="例如：上次维护情况"></label>
+    <p class="form-hint">此天数从记录日期开始按自然日递减，不代表已自动核验游戏记录。</p><p class="form-error" id="form-error" role="alert" hidden></p><div class="dialog-actions"><button type="button" class="button button-light" id="cancel-dialog">取消</button><button class="button button-primary" type="submit">保存记录 ↗</button></div></form></dialog>
+  <dialog id="matches-dialog"><form id="matches-form"><div class="dialog-head"><div><div class="eyebrow">RECENT MATCHES</div><h2>查看近期战绩</h2></div><button type="button" class="close" id="matches-close" aria-label="关闭">×</button></div><label class="field">Riot ID（名字#标签）<span>*</span><input id="matches-id" required maxlength="150" placeholder="例如：召唤师名称#标签" autocomplete="off"></label><p class="form-hint" id="matches-message"></p><div id="matches-results" class="matches-results"></div><div class="dialog-actions"><button type="submit" class="button button-primary" id="matches-submit">查询近期战绩 ↗</button></div></form></dialog>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+</body></html>
