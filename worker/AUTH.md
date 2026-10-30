@@ -5,7 +5,8 @@
 ## 账号密码
 
 - `GET /api/auth/config` 总是返回可公开的开关：`{"password":{"enabled":true},"wechat":{"enabled":false,"reason":"setup_required"}}`。未配置相应服务时为 `false`，不返回密钥。
-- `POST /api/auth/register` / `POST /api/auth/login`：JSON `{username,password}`。用户名先trim并转小写，必须匹配 `^[a-z0-9][a-z0-9_.-]{2,31}$`；密码长度12–128个JavaScript字符，不trim，不允许全空白。
+- `POST /api/auth/register` / `POST /api/auth/login`：JSON `{username,password}`。两者必须是字符串。用户名先trim并转小写，结果非空且注册时唯一；密码只拒绝空字符串，原样参与哈希，不trim，因此空格也是密码的一部分。账号密码不限制长度或字符类型，可以使用单字符、中文、符号和空格。所有接口仍使用通用的64 KiB请求体上限，不截断输入；超限请求会被拒绝。
+- 此规则变更不修改已有用户名、密码哈希或账号归属；已有账号继续使用原密码登录，无需数据库迁移或重新设置密钥。
 - 注册成功201、登录成功200：`{accessToken,tokenType:"Bearer",expiresAt,user:{id,provider:"password",username}}`。此user.id来自服务器，不接受客户端指定身份。
 - 格式错误400 `invalid_credentials`；重复用户名409 `username_taken`；用户名或密码错误统一401 `invalid_credentials`；超限429 `rate_limited`；服务未配置503 `setup_not_ready`。
 - 注册每IP最多5次/小时、每规范化用户名5次/小时；登录每IP30次/15分钟、每规范化用户名10次/15分钟。失败和成功都计数。D1 UPSERT条件和RETURNING保证并发计数原子性；无`CF-Connecting-IP`时使用共享受限桶，不信任`X-Forwarded-For`。这些限制不是浏览器内计数。

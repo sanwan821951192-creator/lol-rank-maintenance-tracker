@@ -30,18 +30,20 @@ npx wrangler deploy
 
 ## 数据及访问方式
 
+账号密码没有专门的长度或字符限制：用户名trim并转小写后须非空且唯一，密码须为非空字符串并按原文验证（包括空格）。通用64 KiB请求体上限仍适用。此校验调整只需更新Worker代码，不迁移或重写已有用户、密码和维护记录。
+
 所有账号接口要求 `Authorization: Bearer <accessToken>`，只读写服务端会话绑定用户的记录。客户端不得指定owner；跨用户和未归属的记录统一返回404。过期或无效会话返回401。CORS允许显式Authorization请求头，不使用跨站认证Cookie。不要把游戏密码、客户端令牌或其他私密信息写入账号、备注、GitHub、前端配置或 Worker 日志。
 
 接口统一使用 JSON，`Content-Type: application/json`。时间是 ISO 8601 UTC，`baselineDate` 是人工输入基准日期（`YYYY-MM-DD`）。
 
-| 请求 | 用途 | 成功结果 |
-| --- | --- | --- |
-| `GET /api/accounts` | 读取自己的全部记录 | `{"accounts":[...]}` |
-| `GET /api/accounts/export` | 导出自己的记录 | `{"version":2,"exportedAt":"...","accounts":[...]}` |
-| `POST /api/accounts` | 新增记录 | HTTP 201，`{"account":{...}}` |
-| `PUT /api/accounts/{id}` | 更新已有记录，提交完整字段及 `revision` | `{"account":{...}}` |
-| `POST /api/accounts/{id}/estimate` | 以当前 `revision` 条件保存独立估算结果 | `{"account":{...}}` |
-| `DELETE /api/accounts/{id}` | 删除记录，请求体为 `{"revision":1}` | `{"ok":true}` |
+| 请求                               | 用途                                    | 成功结果                                            |
+| ---------------------------------- | --------------------------------------- | --------------------------------------------------- |
+| `GET /api/accounts`                | 读取自己的全部记录                      | `{"accounts":[...]}`                                |
+| `GET /api/accounts/export`         | 导出自己的记录                          | `{"version":2,"exportedAt":"...","accounts":[...]}` |
+| `POST /api/accounts`               | 新增记录                                | HTTP 201，`{"account":{...}}`                       |
+| `PUT /api/accounts/{id}`           | 更新已有记录，提交完整字段及 `revision` | `{"account":{...}}`                                 |
+| `POST /api/accounts/{id}/estimate` | 以当前 `revision` 条件保存独立估算结果  | `{"account":{...}}`                                 |
+| `DELETE /api/accounts/{id}`        | 删除记录，请求体为 `{"revision":1}`     | `{"ok":true}`                                       |
 
 新增及更新字段：`name`（1–100 字符）、`region`（1–50 字符）、`queue`（`单双排` / `灵活组排` / `未知`）、`tier`（`钻石` / `大师及以上` / `未知`）、`days`（0–365 整数）、`baselineDate`（有效日期）、`note`（0–300 字符）。更新和删除使用读取到的整数 `revision`。版本不符返回 HTTP 409，需要重新读取后再决定如何处理；记录不存在返回 404，输入错误返回 400。错误格式为 `{"error":{"code":"...","message":"..."}}`。
 
