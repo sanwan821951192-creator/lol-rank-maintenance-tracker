@@ -88,11 +88,20 @@ async function passwordRateLimit(request, db, username, register) {
   return consumeLimit(db, `${action}:username:${username}`, register ? 5 : 10, windowMs)
 }
 
-async function issueSession(db, ownerId, provider, username, json, status = 200) {
+async function issueSession(
+  db,
+  ownerId,
+  provider,
+  username,
+  json,
+  status = 200,
+  rememberMe = false
+) {
   const accessToken = `swa_${randomValue()}`,
     now = Date.now(),
-    expiresAt = now + SESSION_TTL_MS
-  await db.prepare('DELETE FROM auth_sessions WHERE expires_at<=?').bind(now).run()
+    expiresAt = rememberMe ? 0 : now + SESSION_TTL_MS
+  // Zero marks a remembered, revocable session without a scheduled expiry.
+  await db.prepare('DELETE FROM auth_sessions WHERE expires_at>0 AND expires_at<=?').bind(now).run()
   await db
     .prepare(
       'INSERT INTO auth_sessions (token_hash,owner_id,created_at,expires_at) VALUES (?,?,?,?)'
@@ -101,7 +110,12 @@ async function issueSession(db, ownerId, provider, username, json, status = 200)
     .run()
   const user = { id: ownerId, provider, ...(username ? { username } : {}) }
   return json(
-    { accessToken, tokenType: 'Bearer', expiresAt: new Date(expiresAt).toISOString(), user },
+    {
+      accessToken,
+      tokenType: 'Bearer',
+      expiresAt: expiresAt === 0 ? null : new Date(expiresAt).toISOString(),
+      user
+    },
     status
   )
 }
@@ -161,7 +175,7 @@ export async function authenticate(request, db) {
   const session = await db
     .prepare(
       `SELECT s.owner_id AS ownerId, s.expires_at AS expiresAt, u.provider, u.username
-    FROM auth_sessions s JOIN auth_users u ON u.id=s.owner_id WHERE s.token_hash=? AND s.expires_at>?`
+    FROM auth_sessions s JOIN auth_users u ON u.id=s.owner_id WHERE s.token_hash=? AND (s.expires_at=0 OR s.expires_at>?)`
     )
     .bind(sessionHash, Date.now())
     .first()
@@ -240,7 +254,7 @@ export async function authRoute(request, env, path, { json, error, readBody }) {
         provider: session.provider,
         ...(session.username ? { username: session.username } : {})
       },
-      expiresAt: new Date(session.expiresAt).toISOString()
+      expiresAt: session.expiresAt === 0 ? null : new Date(session.expiresAt).toISOString()
     })
   }
   if ((path === '/api/auth/register' || path === '/api/auth/login') && request.method === 'POST') {
@@ -266,7 +280,7 @@ export async function authRoute(request, env, path, { json, error, readBody }) {
         .run()
       if (!inserted.meta?.changes)
         return error(409, 'username_taken', '该用户名已被使用，请换一个。')
-      return issueSession(env.DB, id, 'password', username, json, 201)
+      return issueSession(env.DB, id, 'password', username, json, 201, body.rememberMe === true)
     }
     const user = await env.DB.prepare(
       `SELECT id,username,password_salt AS salt,password_hash AS passwordHash,password_iterations AS iterations
@@ -282,7 +296,15 @@ export async function authRoute(request, env, path, { json, error, readBody }) {
     )
     if (!user || user.iterations !== PASSWORD_ITERATIONS || !sameHash(hash, user.passwordHash))
       return error(401, 'invalid_credentials', '用户名或密码错误。')
-    return issueSession(env.DB, user.id, 'password', user.username, json)
+    return issueSession(
+      env.DB,
+      user.id,
+      'password',
+      user.username,
+      json,
+      200,
+      body.rememberMe === true
+    )
   }
   const config = authConfig(env)
   if (!config) return error(503, 'setup_not_ready', '微信登录尚未完成配置，请联系管理员。')
@@ -308,7 +330,9 @@ export async function authRoute(request, env, path, { json, error, readBody }) {
     }
     // Expired secrets remain unusable even if cleanup is interrupted.
     await env.DB.prepare('DELETE FROM auth_login_transactions WHERE expires_at<=?').bind(now).run()
-    await env.DB.prepare('DELETE FROM auth_sessions WHERE expires_at<=?').bind(now).run()
+    await env.DB.prepare('DELETE FROM auth_sessions WHERE expires_at>0 AND expires_at<=?')
+      .bind(now)
+      .run()
     await env.DB.prepare('DELETE FROM auth_oauth_codes WHERE expires_at<=?').bind(now).run()
     const loginId = randomValue(),
       state = randomValue(),
