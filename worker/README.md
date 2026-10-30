@@ -32,6 +32,8 @@ npx wrangler deploy
 
 账号密码没有专门的长度或字符限制：用户名trim并转小写后须非空且唯一，密码须为非空字符串并按原文验证（包括空格）。通用64 KiB请求体上限仍适用。此校验调整只需更新Worker代码，不迁移或重写已有用户、密码和维护记录。
 
+密码注册或登录请求可发送 `rememberMe: true`，签发不会自动过期、可退出撤销的随机会话，API返回 `expiresAt:null`（数据库使用 `expires_at=0`）；未勾选或省略时仍为2小时。只有布尔true启用永久会话，微信会话保持2小时。过期清理排除永久会话，有限会话查询不会续期，退出会撤销当前token。数据库只保存token哈希，不保存明文密码或token。此调整仅更新Worker代码，已有有限会话保持原到期时间，无需数据库迁移或修改密钥。
+
 所有账号接口要求 `Authorization: Bearer <accessToken>`，只读写服务端会话绑定用户的记录。客户端不得指定owner；跨用户和未归属的记录统一返回404。过期或无效会话返回401。CORS允许显式Authorization请求头，不使用跨站认证Cookie。不要把游戏密码、客户端令牌或其他私密信息写入账号、备注、GitHub、前端配置或 Worker 日志。
 
 接口统一使用 JSON，`Content-Type: application/json`。时间是 ISO 8601 UTC，`baselineDate` 是人工输入基准日期（`YYYY-MM-DD`）。
