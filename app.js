@@ -236,7 +236,6 @@
     $('#retry-connection').hidden = isConnected
     $('#add-account').disabled = !isConnected
     $('#empty-add').disabled = !isConnected
-    $('#export-button').disabled = !isConnected
     $('#update-maintenance').disabled = !isConnected || busy
   }
   async function request(path, options = {}, expected = auth.generation) {
@@ -526,25 +525,6 @@
       }
     }
   })
-  $('#export-button').addEventListener('click', () => {
-    if (!connected) return
-    const backup = {
-      format: 'summoner-maintenance-backup',
-      version: 2,
-      exportedAt: new Date().toISOString(),
-      accounts: records
-    }
-    const url = URL.createObjectURL(
-      new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' })
-    )
-    const link = element('a')
-    link.href = url
-    link.download = `维护簿备份-${localToday()}.json`
-    link.click()
-    setTimeout(() => URL.revokeObjectURL(url), 1000)
-    toast('备份文件已导出')
-  })
-
   $('#update-maintenance').addEventListener('click', async () => {
     if (!connected || busy) return
     const expected = auth.generation

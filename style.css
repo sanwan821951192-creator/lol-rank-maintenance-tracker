@@ -2,7 +2,6 @@
   color-scheme: light;
   --la-color-bg-primary: #f3f3f4;
   --la-color-text-primary: rgba(0, 0, 0, 0.86);
-  --la-color-text-themed: rgba(0, 0, 0, 0.86);
   --la-color-link: #587c66;
   --la-color-select-menu-bg: #fafafa;
   --la-color-message-bg: #f7f7f8;
@@ -14,9 +13,10 @@
   --la-card-border-rgb: 22 26 33;
   --la-color-scrollbar-thumb: #c0c0c0;
   --la-color-scrollbar-thumb-hover: #a0a0a0;
-  --danger: #c4444e;
-  --muted: color-mix(in srgb, var(--la-color-text-themed) 65%, transparent);
-  --subtle: color-mix(in srgb, var(--la-color-text-themed) 48%, transparent);
+  --accent: color-mix(in srgb, var(--la-color-link) 75%, #000);
+  --danger: #b43745;
+  --muted: color-mix(in srgb, var(--la-color-text-primary) 82%, transparent);
+  --subtle: color-mix(in srgb, var(--la-color-text-primary) 80%, transparent);
   --line: rgb(var(--la-card-border-rgb) / 0.12);
   --hover: rgb(var(--la-card-tint-rgb) / 0.06);
 }
@@ -24,7 +24,6 @@
   color-scheme: dark;
   --la-color-bg-primary: #141416;
   --la-color-text-primary: rgba(255, 255, 255, 0.86);
-  --la-color-text-themed: rgba(255, 255, 255, 0.86);
   --la-color-link: #90c6a6;
   --la-color-select-menu-bg: #202024;
   --la-color-message-bg: #252529;
@@ -37,6 +36,7 @@
   --la-color-scrollbar-thumb: #4c4c4c;
   --la-color-scrollbar-thumb-hover: #626262;
   --danger: #ef8790;
+  --accent: var(--la-color-link);
 }
 * {
   box-sizing: border-box;
@@ -44,7 +44,7 @@
 body {
   margin: 0;
   background: var(--la-color-bg-primary);
-  color: var(--la-color-text-themed);
+  color: var(--la-color-text-primary);
   font:
     13px/1.55 -apple-system,
     BlinkMacSystemFont,
@@ -69,7 +69,7 @@ button:focus-visible,
 input:focus-visible,
 select:focus-visible,
 summary:focus-visible {
-  outline: 2px solid var(--la-color-link);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 button,
@@ -139,8 +139,8 @@ input::placeholder {
   font-size: 13px;
 }
 .auth-tabs button[aria-selected='true'] {
-  color: var(--la-color-link);
-  border-bottom-color: var(--la-color-link);
+  color: var(--accent);
+  border-bottom-color: var(--accent);
   font-weight: 600;
 }
 #auth-submit {
@@ -170,7 +170,7 @@ input::placeholder {
   height: 40px;
   border: 1px solid var(--line);
   border-radius: 6px;
-  color: var(--la-color-link);
+  color: var(--accent);
   background: var(--hover);
 }
 .auth-symbol svg {
@@ -200,7 +200,7 @@ input::placeholder {
   font-size: 12px;
 }
 .auth-user {
-  color: var(--la-color-link);
+  color: var(--accent);
   font-size: 12px;
 }
 .auth-actions,
@@ -225,8 +225,8 @@ input::placeholder {
   font-weight: 500;
 }
 .button-primary {
-  background: var(--la-color-link);
-  border-color: var(--la-color-link);
+  background: var(--accent);
+  border-color: var(--accent);
   color: var(--la-color-bg-primary);
 }
 .button-primary:not(:disabled):hover {
@@ -234,12 +234,12 @@ input::placeholder {
 }
 .button-light {
   background: transparent;
-  color: var(--la-color-text-themed);
+  color: var(--la-color-text-primary);
 }
 .button-light:not(:disabled):hover,
 .icon-button:not(:disabled):hover {
   background: var(--hover);
-  border-color: var(--la-color-link);
+  border-color: var(--accent);
 }
 .overview {
   display: grid;
@@ -326,7 +326,7 @@ p {
   color: var(--muted);
 }
 .search:focus-within {
-  border-color: var(--la-color-link);
+  border-color: var(--accent);
 }
 .search svg {
   flex: none;
@@ -342,7 +342,7 @@ p {
   outline: none;
   border: 0;
   background: transparent;
-  color: var(--la-color-text-themed);
+  color: var(--la-color-text-primary);
   font-size: 12px;
 }
 #result-count,
@@ -365,11 +365,11 @@ p {
   color: var(--muted);
 }
 .connection-alert.ok {
-  border-color: color-mix(in srgb, var(--la-color-link) 25%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 25%, transparent);
 }
 .connection-alert.ok,
 .update-status strong {
-  color: var(--la-color-link);
+  color: var(--accent);
 }
 .retry {
   color: inherit;
@@ -417,7 +417,7 @@ p {
   border-radius: 5px;
   background: var(--hover);
   border: 1px solid var(--line);
-  color: var(--la-color-link);
+  color: var(--accent);
   font-weight: 600;
 }
 .identity-text {
@@ -437,7 +437,7 @@ p {
   overflow-wrap: anywhere;
 }
 .row-tags {
-  color: var(--la-color-link);
+  color: var(--accent);
 }
 .meta-label {
   font-size: 11px;
@@ -497,7 +497,7 @@ p {
   color: var(--subtle);
 }
 .empty strong {
-  color: var(--la-color-text-themed);
+  color: var(--la-color-text-primary);
   font-size: 14px;
   font-weight: 500;
 }
@@ -526,7 +526,7 @@ dialog {
   border: 1px solid var(--line);
   border-radius: 7px;
   background: var(--la-color-popconfirm-bg);
-  color: var(--la-color-text-themed);
+  color: var(--la-color-text-primary);
   box-shadow: 0 16px 56px #0004;
 }
 dialog::backdrop {
@@ -581,7 +581,7 @@ dialog::backdrop {
   border: 1px solid var(--line);
   border-radius: 4px;
   background: var(--la-color-select-menu-bg);
-  color: var(--la-color-text-themed);
+  color: var(--la-color-text-primary);
   font-size: 12px;
 }
 .field input:hover,
@@ -611,7 +611,7 @@ dialog::backdrop {
   background: transparent;
 }
 .input-prefix:focus-within {
-  border-color: var(--la-color-link);
+  border-color: var(--accent);
 }
 .form-hint {
   margin-top: 14px;
@@ -644,7 +644,7 @@ dialog::backdrop {
   border-radius: 5px;
   box-shadow: 0 5px 24px #0002;
   background: var(--la-color-message-bg);
-  color: var(--la-color-text-themed);
+  color: var(--la-color-text-primary);
   font-size: 12px;
   opacity: 0;
   pointer-events: none;

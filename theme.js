@@ -5,7 +5,6 @@
   const colors = [
     '--la-color-bg-primary',
     '--la-color-text-primary',
-    '--la-color-text-themed',
     '--la-color-link',
     '--la-color-select-menu-bg',
     '--la-color-message-bg',
