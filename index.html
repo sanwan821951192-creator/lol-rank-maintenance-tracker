@@ -1,56 +1,217 @@
 <!doctype html>
 <html lang="zh-CN">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#111b21">
-  <meta name="description" content="记录英雄联盟账号的维护天数，按日期查看估算剩余时间。">
-  <title>峡谷维护簿 | LOL 账号维护记录</title>
-  <link rel="stylesheet" href="style.css">
-  <script src="config.js" defer></script>
-  <script src="update-engine.js" defer></script>
-  <script src="app.js" defer></script>
-</head>
-<body>
-  <div class="page">
-    <header class="topbar">
-      <a class="brand" href="#top" aria-label="峡谷维护簿首页"><span class="brand-mark">峡</span><span><strong>峡谷维护簿</strong><small>SUMMONER LOG</small></span></a>
-      <span class="top-note"><span class="live-dot"></span><span id="connection-status">共享服务未连接</span></span>
-    </header>
-
-    <main id="top">
-      <section class="intro">
-        <div class="intro-copy"><div class="eyebrow"><span>01 / ACCOUNT TRACKER</span><i></i><span>英雄联盟</span></div>
-          <h1>把每个账号的<br><em>维护时间</em>记清楚。</h1>
-          <p>集中记录游戏 ID 和剩余维护天数。按记录日期自动计算，打开页面就能看到需要关注的账号。</p>
-          <div class="hero-actions"><button type="button" class="button button-primary" id="add-account"><span class="plus">＋</span> 添加账号</button><a href="#accounts" class="text-link">查看账号 <span>↘</span></a></div>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>维护记录 · 三晚助手</title>
+    <link rel="stylesheet" href="style.css" />
+    <script src="theme.js" defer></script>
+    <script src="config.js" defer></script>
+    <script src="update-engine.js" defer></script>
+    <script src="auth.js" defer></script>
+    <script src="app.js" defer></script>
+  </head>
+  <body>
+    <div class="page">
+      <section id="auth-panel" class="auth-panel" data-state="signed-out" aria-label="三晚助手账号">
+        <div class="auth-symbol" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none">
+            <rect x="4" y="5" width="16" height="15" rx="3" />
+            <path d="M8 5V3m8 2V3M4 10h16m-11 4h6m-6 3h3" />
+          </svg>
         </div>
-        <div class="hero-art" aria-hidden="true"><div class="orbit orbit-one"></div><div class="orbit orbit-two"></div><div class="hero-symbol"><span>✦</span></div><div class="art-caption"><span>KEEP YOUR<br>ACCOUNTS READY</span><b>✳</b></div><div class="art-index">DAILY<br>RECORD<br><strong>01—∞</strong></div></div>
+        <div class="auth-copy">
+          <div class="auth-heading">
+            <strong>个人维护记录</strong><span id="auth-user" class="auth-user" hidden></span>
+          </div>
+          <p id="auth-status" role="status">正在连接登录服务…</p>
+        </div>
+        <form id="auth-form" class="auth-form">
+          <div class="auth-tabs" role="tablist" aria-label="登录或注册">
+            <button id="auth-mode-login" type="button" role="tab" aria-selected="true">登录</button>
+            <button id="auth-mode-register" type="button" role="tab" aria-selected="false">
+              注册账号
+            </button>
+          </div>
+          <label class="field" for="username"
+            >用户名<input
+              id="username"
+              name="username"
+              required
+              minlength="3"
+              maxlength="32"
+              pattern="[A-Za-z0-9][A-Za-z0-9_.\-]{2,31}"
+              autocomplete="username"
+              autocapitalize="none"
+              spellcheck="false"
+              placeholder="3–32 位英文字母、数字或 _ . -"
+          /></label>
+          <label class="field" for="password"
+            >密码<input
+              id="password"
+              name="password"
+              type="password"
+              required
+              minlength="12"
+              maxlength="128"
+              autocomplete="current-password"
+              placeholder="请输入密码，至少 12 位"
+          /></label>
+          <label class="field" id="confirm-password-field" for="confirm-password" hidden
+            >确认密码<input
+              id="confirm-password"
+              name="confirmPassword"
+              type="password"
+              minlength="12"
+              maxlength="128"
+              autocomplete="new-password"
+              placeholder="请再次输入密码"
+          /></label>
+          <p id="auth-error" class="form-error" role="alert" hidden></p>
+          <button id="auth-submit" class="button button-primary" type="submit" disabled>
+            登录
+          </button>
+          <p class="auth-private-note">每个账号单独保存维护记录，登录后可在不同电脑查看。</p>
+        </form>
+        <div class="auth-actions">
+          <button id="login-wechat" class="button button-light" type="button" disabled>
+            微信登录 · 尚未配置</button
+          ><button id="logout-button" class="button button-light" type="button" hidden>
+            退出登录
+          </button>
+        </div>
       </section>
 
-      <section class="notice" aria-label="使用说明"><div class="notice-icon">i</div><div><strong>共享账号记录 · 查询后人工核对</strong><p>可使用本机登录的英雄联盟客户端和查询程序查询战绩，逐场核对后更新估算。数据可能延迟或遗漏，实际维护天数以游戏客户端为准。记录对所有访问者开放，请勿填写密码等敏感信息。</p></div></section>
+      <main id="account-workspace" hidden>
+        <section class="overview" aria-label="账号概览">
+          <div class="stat"><span>记录账号</span><strong id="total-count">—</strong></div>
+          <div class="stat stat-attention">
+            <span>0 天需要维护</span><strong id="urgent-count">—</strong>
+          </div>
+          <div class="stat"><span>尚有维护天数</span><strong id="expired-count">—</strong></div>
+          <div class="stat stat-date"><span>北京时间</span><strong id="today-date">—</strong></div>
+        </section>
+        <section class="account-section" id="accounts" aria-labelledby="accounts-title">
+          <div class="section-head">
+            <div>
+              <h1 id="accounts-title">我的账号 <span id="list-count">0</span></h1>
+              <p>按剩余天数从少到多排列，仅 0 天提醒维护。</p>
+            </div>
+            <div class="file-actions">
+              <button class="button button-light" id="export-button" type="button">导出备份</button
+              ><button class="button button-light" id="update-maintenance" type="button">
+                更新维护天数</button
+              ><button class="button button-primary" id="add-account" type="button">
+                ＋ 添加账号
+              </button>
+            </div>
+          </div>
+          <div class="list-toolbar">
+            <label class="search"
+              ><svg viewBox="0 0 20 20" aria-hidden="true">
+                <circle cx="8.5" cy="8.5" r="5.5" />
+                <path d="m13 13 4 4" /></svg
+              ><input
+                id="search"
+                type="search"
+                placeholder="搜索游戏 ID 或大区"
+                aria-label="搜索游戏 ID 或大区"
+            /></label>
+            <span id="result-count">共 0 个账号</span
+            ><span id="connection-status" class="connection-status">服务未连接</span>
+          </div>
+          <div class="connection-alert" id="connection-alert" role="status">
+            正在连接记录服务…
+            <button type="button" class="retry" id="retry-connection">重试</button>
+          </div>
+          <div
+            class="update-status"
+            id="update-status"
+            role="status"
+            aria-live="polite"
+            hidden
+          ></div>
+          <div class="account-list" id="account-list" aria-live="polite"></div>
+          <div class="empty" id="empty-state">
+            <div class="empty-symbol" aria-hidden="true">＋</div>
+            <strong>还没有账号记录</strong>
+            <p>填写游戏 ID、编号、大区和剩余天数，即可开始记录。</p>
+            <button type="button" class="button button-primary" id="empty-add">
+              添加第一个账号
+            </button>
+          </div>
+          <div class="no-results" id="no-results" hidden>
+            没有找到匹配的账号，请尝试其他关键词。
+          </div>
+        </section>
+        <details class="notice">
+          <summary>维护天数如何计算</summary>
+          <p>
+            点击“更新维护天数”，录入时刻后的单双排每场计入一天，重复查询不会重复加天。每天北京时间
+            23:55 扣一天；大师及以上最多 14 天，钻石最多 28
+            天。结果为估算，实际维护天数以游戏客户端为准。
+          </p>
+        </details>
+      </main>
+    </div>
 
-      <section class="overview" aria-label="账号概览"><div class="stat"><span>记录账号</span><strong id="total-count">00</strong><small>ACCOUNT LIST</small></div><div class="stat"><span>3 天内需关注</span><strong id="urgent-count">00</strong><small>NEED ATTENTION</small></div><div class="stat"><span>已到期 / 待确认</span><strong id="expired-count">00</strong><small>CHECK REQUIRED</small></div><div class="stat stat-date"><span>今天</span><strong id="today-date">—</strong><small>北京时间 · 每日自动变化</small></div></section>
-
-      <section class="account-section" id="accounts"><div class="section-head"><div><div class="eyebrow"><span>02 / YOUR ACCOUNTS</span><i></i><span>账号清单</span></div><h2>我的账号 <span id="list-count">0</span></h2><p>账号记录由共享服务保存，所有访问者都可以查看和修改。</p></div><div class="file-actions"><button class="button button-primary" id="update-maintenance" type="button">更新维护天数 ↻</button><button class="button button-light" id="export-button" type="button">导出备份 ↗</button></div></div>
-      <div class="list-toolbar"><label class="search"><span aria-hidden="true">⌕</span><input id="search" type="search" placeholder="搜索游戏 ID 或区服" aria-label="搜索游戏 ID 或区服"></label><span id="result-count">共 0 个账号</span><button type="button" class="button button-light" id="open-matches">查询战绩 ↗</button></div>
-      <div class="connection-alert" id="connection-alert" role="status">正在连接共享服务… <button type="button" class="retry" id="retry-connection">重试连接</button></div>
-      <div class="update-status" id="update-status" role="status" aria-live="polite" hidden></div>
-      <div class="account-list" id="account-list" aria-live="polite"></div>
-      <div class="empty" id="empty-state"><div class="empty-icon">✦</div><strong>还没有账号记录</strong><p>先添加一个账号，维护时间就有地方可查了。</p><button type="button" class="button button-primary" id="empty-add">添加第一个账号 <span>↗</span></button></div>
-      <div class="no-results" id="no-results" hidden>没有找到匹配的账号，试试其他关键词。</div>
-      </section>
-    </main>
-    <footer><span>峡谷维护簿 <b>✦</b></span><span>简单记录，安心上分。</span><span>共享记录 · 请勿填写敏感信息</span></footer>
-  </div>
-  <dialog id="account-dialog"><form id="account-form"><div class="dialog-head"><div><div class="eyebrow">ACCOUNT DETAILS</div><h2 id="dialog-title">添加账号</h2></div><button type="button" class="close" id="close-dialog" aria-label="关闭">×</button></div><p class="dialog-intro">填写当前已知信息，之后可以随时修改。</p>
-    <label class="field">游戏 ID <span>*</span><input name="gameId" maxlength="100" required autocomplete="off" placeholder="例如：游戏名#标签"></label>
-    <label class="field">区服 <span>*</span><input name="server" maxlength="50" required autocomplete="off" placeholder="例如：艾欧尼亚"></label>
-    <div class="field-grid"><label class="field">排位队列 <span>*</span><select name="queue" required><option>未知</option><option>单双排</option><option>灵活组排</option></select></label><label class="field">段位 <span>*</span><select name="tier" required><option>未知</option><option>钻石</option><option>大师及以上</option></select></label></div>
-    <div class="field-grid"><label class="field">当前剩余天数 <span>*</span><input name="days" type="number" min="0" max="365" step="1" required placeholder="请输入客户端现在显示的天数"></label><label class="field">记录日期（北京时间）<input name="recordedAt" type="date" readonly></label></div>
-    <label class="field">备注 <small>选填</small><input name="note" maxlength="300" autocomplete="off" placeholder="例如：上次维护情况"></label>
-    <p class="form-hint">请填写游戏客户端此刻显示的天数。每次保存（包括只修改备注）都会以保存时刻重新设定基准并清除之前的估算；日期和时间自动按保存时刻记录。旧记录请核对当前天数后重新保存。</p><p class="form-error" id="form-error" role="alert" hidden></p><div class="dialog-actions"><button type="button" class="button button-light" id="cancel-dialog">取消</button><button class="button button-primary" type="submit">确认当前天数并保存 ↗</button></div></form></dialog>
-  <dialog id="matches-dialog"><form id="matches-form"><div class="dialog-head"><div><div class="eyebrow">RECENT MATCHES</div><h2>查看近期战绩</h2></div><button type="button" class="close" id="matches-close" aria-label="关闭">×</button></div><label class="field">Riot ID（名字#标签）<span>*</span><input id="matches-id" required maxlength="150" placeholder="例如：游戏名#标签" autocomplete="off"></label><label class="field">目标区服 <span>*</span><input id="matches-region" required maxlength="50" placeholder="例如：比尔吉沃特" autocomplete="off"></label><details class="match-help"><summary>首次使用：连接本机查询程序</summary><p>本机需登录英雄联盟客户端，并运行本项目的查询程序。它直接使用客户端凭证查询，不需要安装或启动 Akari。查询程序和网页须在同一台电脑上运行。</p><p>下载并解压组件后，双击 <code>bridge/start-query.cmd</code>，保持窗口和游戏客户端运行。</p><p><a href="https://github.com/sanwan821951192-creator/lol-rank-maintenance-tracker/blob/main/lol-maintenance-components.zip" target="_blank" rel="noopener noreferrer">下载查询程序压缩包</a>，详细步骤见压缩包内的 <code>bridge/README.md</code>。</p></details><p class="form-hint" id="matches-message" role="status" aria-live="polite"></p><div id="matches-results" class="matches-results"></div><div class="dialog-actions"><button type="submit" class="button button-primary" id="matches-submit">查询近期战绩 ↗</button></div></form></dialog>
-  <dialog id="decision-dialog"><form id="decision-form"><div class="dialog-head"><div><div class="eyebrow">REVIEW MATCHES</div><h2>逐场核对维护</h2></div></div><p class="form-hint" id="decision-description"></p><div class="decision-list" id="decision-list"></div><p class="form-error" id="decision-error" role="alert" hidden></p><div class="dialog-actions"><button type="button" class="button button-light" id="decision-skip">跳过此账号</button><button type="submit" class="button button-primary">确认并保存估算</button></div></form></dialog>
-  <div id="toast" class="toast" role="status" aria-live="polite"></div>
-</body></html>
+    <dialog id="account-dialog" aria-labelledby="dialog-title">
+      <form id="account-form">
+        <div class="dialog-head">
+          <h2 id="dialog-title">添加账号</h2>
+          <button type="button" class="close" id="close-dialog" aria-label="关闭">×</button>
+        </div>
+        <p class="dialog-intro">段位与胜点自动查询，保存时记录精确录入时间。</p>
+        <div class="field-grid">
+          <label class="field"
+            >游戏 ID <span>*</span
+            ><input
+              name="gameId"
+              maxlength="80"
+              required
+              autocomplete="off"
+              placeholder="例如：温润与泽" /></label
+          ><label class="field"
+            >编号 <span>*</span>
+            <div class="input-prefix">
+              <span aria-hidden="true">#</span
+              ><input
+                name="tag"
+                maxlength="20"
+                required
+                autocomplete="off"
+                placeholder="例如：67121"
+              /></div
+          ></label>
+        </div>
+        <label class="field"
+          >大区 <span>*</span
+          ><select name="server" required>
+            <option value="" disabled>请选择大区</option>
+          </select></label
+        >
+        <label class="field"
+          >剩余维护天数 <span>*</span
+          ><input
+            name="days"
+            type="number"
+            min="0"
+            max="28"
+            step="1"
+            required
+            placeholder="请输入客户端现在显示的天数"
+        /></label>
+        <p class="form-hint">
+          每次保存都会以当前天数重新设定基准。大师及以上最多 14 天，钻石最多 28 天。
+        </p>
+        <p class="form-error" id="form-error" role="alert" hidden></p>
+        <div class="dialog-actions">
+          <button type="button" class="button button-light" id="cancel-dialog">取消</button
+          ><button class="button button-primary" type="submit">查询段位并保存</button>
+        </div>
+      </form>
+    </dialog>
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  </body>
+</html>

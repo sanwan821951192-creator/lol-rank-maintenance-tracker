@@ -1,4 +1,4 @@
-/* Recompute from the manually confirmed baseline; game eligibility is decided by the user. */
+/* Recompute from the manual baseline; every new solo/duo game counts under the user's rule. */
 (function (root) {
   'use strict';
   const DAY = 86400000;
@@ -35,23 +35,23 @@
     decisions.sort((a,b) => Date.parse(a.endedAt) - Date.parse(b.endedAt) || a.gameId.localeCompare(b.gameId));
     return {targetAt: new Date(target).toISOString(), decisions, excludedCount: 0, settlements: Math.max(0, boundary(target) - boundary(base))};
   }
-  function calculate(record, pending, answers) {
+  function calculate(record, pending) {
     const base = time(record.baselineAt, '精确录入时间');
     const target = time(pending.targetAt, '查询时刻');
     const cap = record.tier === '大师及以上' ? 14 : record.tier === '钻石' ? 28 : 0;
     if (!cap || target < base || !Number.isInteger(record.days) || record.days < 0 || record.days > cap) throw new Error('基准记录无效。');
-    let days = record.days, cursor = base, counted = 0, excluded = 0;
+    let days = record.days, cursor = base, counted = 0;
     for (const match of pending.decisions) {
-      if (!Object.prototype.hasOwnProperty.call(answers, match.gameId) || typeof answers[match.gameId] !== 'boolean') throw new Error('请逐场确认计入或不计。');
       const ended = time(match.endedAt, '对局结束时间');
       if (ended <= cursor || ended > target) throw new Error('对局时间顺序异常，请重试。');
       days = Math.max(0, days - Math.max(0, boundary(ended) - boundary(cursor)));
-      if (answers[match.gameId]) { days = Math.min(cap, days + 1); counted++; } else { excluded++; }
+      days = Math.min(cap, days + 1);
+      counted++;
       cursor = ended;
     }
     days = Math.max(0, days - Math.max(0, boundary(target) - boundary(cursor)));
     return {candidateDays: days, candidateAt: new Date(target).toISOString(),
-      candidateSummary: `人工核对单双排 ${pending.decisions.length} 场：计入 ${counted}，不计 ${excluded}；按北京时间 23:55 结算。战绩可能延迟或遗漏，结果为估算。`};
+      candidateSummary: `按当前规则自动计入单双排 ${counted} 场，每场加 1 天，上限 ${cap} 天；按北京时间 23:55 结算。战绩可能延迟或遗漏，结果为估算。`};
   }
   function decay(days, from, to) {
     const start = time(from, '记录时间'), end = time(to, '当前时间');
