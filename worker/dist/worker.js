@@ -11,34 +11,58 @@ function passwordReady(env) {
 function usernameOf(input) {
   if (typeof input !== "string") return null;
   const username = input.trim().toLowerCase();
-  return /^[a-z0-9][a-z0-9_.-]{2,31}$/.test(username) ? username : null;
+  return username || null;
 }
 function passwordValid(value) {
-  return typeof value === "string" && value.length >= 12 && value.length <= 128 && value.trim().length > 0;
+  return typeof value === "string" && value.length > 0;
 }
 async function passwordHash(password, salt, pepper) {
-  const pepperKey = await crypto.subtle.importKey("raw", new TextEncoder().encode(pepper), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-  const secretInput = await crypto.subtle.sign("HMAC", pepperKey, new TextEncoder().encode(password));
+  const pepperKey = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(pepper),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+  const secretInput = await crypto.subtle.sign(
+    "HMAC",
+    pepperKey,
+    new TextEncoder().encode(password)
+  );
   const key = await crypto.subtle.importKey("raw", secretInput, "PBKDF2", false, ["deriveBits"]);
-  return base64url(new Uint8Array(await crypto.subtle.deriveBits({
-    name: "PBKDF2",
-    hash: "SHA-256",
-    salt: Uint8Array.from(atob(salt.replace(/-/g, "+").replace(/_/g, "/") + "="), (char) => char.charCodeAt(0)),
-    iterations: PASSWORD_ITERATIONS
-  }, key, 256)));
+  return base64url(
+    new Uint8Array(
+      await crypto.subtle.deriveBits(
+        {
+          name: "PBKDF2",
+          hash: "SHA-256",
+          salt: Uint8Array.from(
+            atob(salt.replace(/-/g, "+").replace(/_/g, "/") + "="),
+            (char) => char.charCodeAt(0)
+          ),
+          iterations: PASSWORD_ITERATIONS
+        },
+        key,
+        256
+      )
+    )
+  );
 }
 function sameHash(left, right) {
-  if (typeof left !== "string" || typeof right !== "string" || left.length !== right.length) return false;
+  if (typeof left !== "string" || typeof right !== "string" || left.length !== right.length)
+    return false;
   let difference = 0;
   for (let i = 0; i < left.length; i++) difference |= left.charCodeAt(i) ^ right.charCodeAt(i);
   return difference === 0;
 }
 async function consumeLimit(db, key, limit, windowMs) {
   const now = Date.now(), windowStart = Math.floor(now / windowMs) * windowMs;
-  const row = await db.prepare(`INSERT INTO auth_rate_limits (bucket_key,window_start,attempts,expires_at) VALUES (?,?,1,?)
+  const row = await db.prepare(
+    `INSERT INTO auth_rate_limits (bucket_key,window_start,attempts,expires_at) VALUES (?,?,1,?)
     ON CONFLICT(bucket_key) DO UPDATE SET attempts=CASE WHEN window_start=excluded.window_start THEN attempts+1 ELSE 1 END,
       window_start=excluded.window_start,expires_at=excluded.expires_at
-    WHERE window_start<>excluded.window_start OR attempts<? RETURNING attempts`).bind(await hashSecret(key), windowStart, windowStart + windowMs, limit).first();
+    WHERE window_start<>excluded.window_start OR attempts<? RETURNING attempts`
+  ).bind(await hashSecret(key), windowStart, windowStart + windowMs, limit).first();
   return Boolean(row);
 }
 async function passwordRateLimit(request, db, username, register) {
@@ -52,9 +76,14 @@ async function passwordRateLimit(request, db, username, register) {
 async function issueSession(db, ownerId, provider, username, json2, status = 200) {
   const accessToken = `swa_${randomValue()}`, now = Date.now(), expiresAt = now + SESSION_TTL_MS;
   await db.prepare("DELETE FROM auth_sessions WHERE expires_at<=?").bind(now).run();
-  await db.prepare("INSERT INTO auth_sessions (token_hash,owner_id,created_at,expires_at) VALUES (?,?,?,?)").bind(await hashSecret(accessToken), ownerId, now, expiresAt).run();
+  await db.prepare(
+    "INSERT INTO auth_sessions (token_hash,owner_id,created_at,expires_at) VALUES (?,?,?,?)"
+  ).bind(await hashSecret(accessToken), ownerId, now, expiresAt).run();
   const user = { id: ownerId, provider, ...username ? { username } : {} };
-  return json2({ accessToken, tokenType: "Bearer", expiresAt: new Date(expiresAt).toISOString(), user }, status);
+  return json2(
+    { accessToken, tokenType: "Bearer", expiresAt: new Date(expiresAt).toISOString(), user },
+    status
+  );
 }
 function base64url(bytes) {
   return btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
@@ -63,14 +92,22 @@ function randomValue() {
   return base64url(crypto.getRandomValues(new Uint8Array(32)));
 }
 async function hashSecret(value) {
-  return base64url(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value))));
+  return base64url(
+    new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value)))
+  );
 }
 function authConfig(env) {
-  if (typeof env.WECHAT_APP_ID !== "string" || !/^wx[a-z0-9]{16}$/i.test(env.WECHAT_APP_ID) || typeof env.WECHAT_APP_SECRET !== "string" || env.WECHAT_APP_SECRET.length < 16 || env.WECHAT_APP_SECRET.length > 256) return null;
+  if (typeof env.WECHAT_APP_ID !== "string" || !/^wx[a-z0-9]{16}$/i.test(env.WECHAT_APP_ID) || typeof env.WECHAT_APP_SECRET !== "string" || env.WECHAT_APP_SECRET.length < 16 || env.WECHAT_APP_SECRET.length > 256)
+    return null;
   try {
     const callback = new URL(env.WECHAT_REDIRECT_URI);
-    if (callback.protocol !== "https:" || callback.username || callback.password || callback.search || callback.hash || callback.pathname !== "/api/auth/wechat/callback") return null;
-    return { appId: env.WECHAT_APP_ID, appSecret: env.WECHAT_APP_SECRET, redirectUri: callback.href };
+    if (callback.protocol !== "https:" || callback.username || callback.password || callback.search || callback.hash || callback.pathname !== "/api/auth/wechat/callback")
+      return null;
+    return {
+      appId: env.WECHAT_APP_ID,
+      appSecret: env.WECHAT_APP_SECRET,
+      redirectUri: callback.href
+    };
   } catch {
     return null;
   }
@@ -80,30 +117,40 @@ async function authenticate(request, db) {
   const match = authorization.match(/^Bearer (swa_[A-Za-z0-9_-]{43})$/);
   if (!match) return null;
   const sessionHash = await hashSecret(match[1]);
-  const session = await db.prepare(`SELECT s.owner_id AS ownerId, s.expires_at AS expiresAt, u.provider, u.username
-    FROM auth_sessions s JOIN auth_users u ON u.id=s.owner_id WHERE s.token_hash=? AND s.expires_at>?`).bind(sessionHash, Date.now()).first();
+  const session = await db.prepare(
+    `SELECT s.owner_id AS ownerId, s.expires_at AS expiresAt, u.provider, u.username
+    FROM auth_sessions s JOIN auth_users u ON u.id=s.owner_id WHERE s.token_hash=? AND s.expires_at>?`
+  ).bind(sessionHash, Date.now()).first();
   return session ? { ...session, sessionHash } : null;
 }
 function callbackPage(message, status = 200) {
-  return new Response(`<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>\u4E09\u665A\u52A9\u624B\u5FAE\u4FE1\u767B\u5F55</title><body><h1>\u4E09\u665A\u52A9\u624B</h1><p>${message}</p></body></html>`, {
-    status,
-    headers: {
-      "Content-Type": "text/html; charset=utf-8",
-      "Cache-Control": "no-store",
-      "Referrer-Policy": "no-referrer",
-      "X-Content-Type-Options": "nosniff",
-      "Content-Security-Policy": "default-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'"
+  return new Response(
+    `<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>\u4E09\u665A\u52A9\u624B\u5FAE\u4FE1\u767B\u5F55</title><body><h1>\u4E09\u665A\u52A9\u624B</h1><p>${message}</p></body></html>`,
+    {
+      status,
+      headers: {
+        "Content-Type": "text/html; charset=utf-8",
+        "Cache-Control": "no-store",
+        "Referrer-Policy": "no-referrer",
+        "X-Content-Type-Options": "nosniff",
+        "Content-Security-Policy": "default-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'"
+      }
     }
-  });
+  );
 }
 async function markFailed(db, loginId) {
-  await db.prepare("UPDATE auth_login_transactions SET status='failed',owner_id=NULL WHERE id=? AND status='processing'").bind(loginId).run();
+  await db.prepare(
+    "UPDATE auth_login_transactions SET status='failed',owner_id=NULL WHERE id=? AND status='processing'"
+  ).bind(loginId).run();
 }
 async function findTransaction(db, body) {
-  if (!body || typeof body !== "object" || !RANDOM_VALUE.test(body.loginId || "") || !VERIFIER.test(body.codeVerifier || "")) return null;
+  if (!body || typeof body !== "object" || !RANDOM_VALUE.test(body.loginId || "") || !VERIFIER.test(body.codeVerifier || ""))
+    return null;
   const challenge = await hashSecret(body.codeVerifier);
-  return db.prepare(`SELECT id,status,expires_at AS expiresAt,owner_id AS ownerId FROM auth_login_transactions
-    WHERE id=? AND code_challenge=? AND expires_at>?`).bind(body.loginId, challenge, Date.now()).first();
+  return db.prepare(
+    `SELECT id,status,expires_at AS expiresAt,owner_id AS ownerId FROM auth_login_transactions
+    WHERE id=? AND code_challenge=? AND expires_at>?`
+  ).bind(body.loginId, challenge, Date.now()).first();
 }
 async function authRoute(request, env, path, { json: json2, error: error2, readBody: readBody2 }) {
   if (path === "/api/auth/config" && request.method === "GET") {
@@ -120,25 +167,45 @@ async function authRoute(request, env, path, { json: json2, error: error2, readB
       await env.DB.prepare("DELETE FROM auth_sessions WHERE token_hash=? AND owner_id=?").bind(session.sessionHash, session.ownerId).run();
       return json2({ ok: true });
     }
-    return json2({ user: { id: session.ownerId, provider: session.provider, ...session.username ? { username: session.username } : {} }, expiresAt: new Date(session.expiresAt).toISOString() });
+    return json2({
+      user: {
+        id: session.ownerId,
+        provider: session.provider,
+        ...session.username ? { username: session.username } : {}
+      },
+      expiresAt: new Date(session.expiresAt).toISOString()
+    });
   }
   if ((path === "/api/auth/register" || path === "/api/auth/login") && request.method === "POST") {
-    if (!passwordReady(env)) return error2(503, "setup_not_ready", "\u8D26\u53F7\u767B\u5F55\u5C1A\u672A\u5B8C\u6210\u914D\u7F6E\uFF0C\u8BF7\u8054\u7CFB\u7BA1\u7406\u5458\u3002");
+    if (!passwordReady(env))
+      return error2(503, "setup_not_ready", "\u8D26\u53F7\u767B\u5F55\u5C1A\u672A\u5B8C\u6210\u914D\u7F6E\uFF0C\u8BF7\u8054\u7CFB\u7BA1\u7406\u5458\u3002");
     const body = await readBody2(request), username = usernameOf(body?.username), register = path.endsWith("/register");
-    if (!await passwordRateLimit(request, env.DB, username || "<invalid>", register)) return error2(429, "rate_limited", "\u5C1D\u8BD5\u6B21\u6570\u8FC7\u591A\uFF0C\u8BF7\u7A0D\u540E\u518D\u8BD5\u3002");
-    if (!username || !passwordValid(body?.password)) return error2(400, "invalid_credentials", "\u7528\u6237\u540D\u987B\u4E3A3\u201332\u4F4D\u82F1\u6587\u5B57\u6BCD\u3001\u6570\u5B57\u3001\u70B9\u3001\u4E0B\u5212\u7EBF\u6216\u77ED\u6A2A\u7EBF\uFF0C\u9996\u4F4D\u4E3A\u5B57\u6BCD\u6216\u6570\u5B57\uFF1B\u5BC6\u7801\u987B\u4E3A12\u2013128\u5B57\u7B26\u3002");
+    if (!await passwordRateLimit(request, env.DB, username || "<invalid>", register))
+      return error2(429, "rate_limited", "\u5C1D\u8BD5\u6B21\u6570\u8FC7\u591A\uFF0C\u8BF7\u7A0D\u540E\u518D\u8BD5\u3002");
+    if (!username || !passwordValid(body?.password))
+      return error2(400, "invalid_credentials", "\u8BF7\u8F93\u5165\u975E\u7A7A\u7684\u7528\u6237\u540D\u548C\u5BC6\u7801\u3002");
     if (register) {
       const id = crypto.randomUUID(), salt = randomValue();
       const hash2 = await passwordHash(body.password, salt, env.AUTH_PASSWORD_PEPPER);
-      const inserted = await env.DB.prepare(`INSERT OR IGNORE INTO auth_users
-        (id,provider,username,password_salt,password_hash,password_iterations,created_at) VALUES (?,'password',?,?,?,?,?)`).bind(id, username, salt, hash2, PASSWORD_ITERATIONS, Date.now()).run();
-      if (!inserted.meta?.changes) return error2(409, "username_taken", "\u8BE5\u7528\u6237\u540D\u5DF2\u88AB\u4F7F\u7528\uFF0C\u8BF7\u6362\u4E00\u4E2A\u3002");
+      const inserted = await env.DB.prepare(
+        `INSERT OR IGNORE INTO auth_users
+        (id,provider,username,password_salt,password_hash,password_iterations,created_at) VALUES (?,'password',?,?,?,?,?)`
+      ).bind(id, username, salt, hash2, PASSWORD_ITERATIONS, Date.now()).run();
+      if (!inserted.meta?.changes)
+        return error2(409, "username_taken", "\u8BE5\u7528\u6237\u540D\u5DF2\u88AB\u4F7F\u7528\uFF0C\u8BF7\u6362\u4E00\u4E2A\u3002");
       return issueSession(env.DB, id, "password", username, json2, 201);
     }
-    const user = await env.DB.prepare(`SELECT id,username,password_salt AS salt,password_hash AS passwordHash,password_iterations AS iterations
-      FROM auth_users WHERE username=? AND provider='password'`).bind(username).first();
-    const hash = await passwordHash(body.password, user?.salt || "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", env.AUTH_PASSWORD_PEPPER);
-    if (!user || user.iterations !== PASSWORD_ITERATIONS || !sameHash(hash, user.passwordHash)) return error2(401, "invalid_credentials", "\u7528\u6237\u540D\u6216\u5BC6\u7801\u9519\u8BEF\u3002");
+    const user = await env.DB.prepare(
+      `SELECT id,username,password_salt AS salt,password_hash AS passwordHash,password_iterations AS iterations
+      FROM auth_users WHERE username=? AND provider='password'`
+    ).bind(username).first();
+    const hash = await passwordHash(
+      body.password,
+      user?.salt || "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      env.AUTH_PASSWORD_PEPPER
+    );
+    if (!user || user.iterations !== PASSWORD_ITERATIONS || !sameHash(hash, user.passwordHash))
+      return error2(401, "invalid_credentials", "\u7528\u6237\u540D\u6216\u5BC6\u7801\u9519\u8BEF\u3002");
     return issueSession(env.DB, user.id, "password", user.username, json2);
   }
   const config = authConfig(env);
@@ -149,15 +216,22 @@ async function authRoute(request, env, path, { json: json2, error: error2, readB
       return error2(400, "invalid_login_request", "\u767B\u5F55\u8BF7\u6C42\u65E0\u6548\uFF0C\u8BF7\u91CD\u65B0\u53D1\u8D77\u767B\u5F55\u3002");
     }
     const now = Date.now();
-    if (!await consumeLimit(env.DB, `wechat-start:ip:${request.headers.get("CF-Connecting-IP") || "unavailable"}`, 20, 9e5)) {
+    if (!await consumeLimit(
+      env.DB,
+      `wechat-start:ip:${request.headers.get("CF-Connecting-IP") || "unavailable"}`,
+      20,
+      9e5
+    )) {
       return error2(429, "rate_limited", "\u5C1D\u8BD5\u6B21\u6570\u8FC7\u591A\uFF0C\u8BF7\u7A0D\u540E\u518D\u8BD5\u3002");
     }
     await env.DB.prepare("DELETE FROM auth_login_transactions WHERE expires_at<=?").bind(now).run();
     await env.DB.prepare("DELETE FROM auth_sessions WHERE expires_at<=?").bind(now).run();
     await env.DB.prepare("DELETE FROM auth_oauth_codes WHERE expires_at<=?").bind(now).run();
     const loginId = randomValue(), state = randomValue(), expiresAt = now + LOGIN_TTL_MS;
-    await env.DB.prepare(`INSERT INTO auth_login_transactions
-      (id,state_hash,code_challenge,wechat_app_id,status,created_at,expires_at) VALUES (?,?,?,?,'pending',?,?)`).bind(loginId, await hashSecret(state), body.codeChallenge, config.appId, now, expiresAt).run();
+    await env.DB.prepare(
+      `INSERT INTO auth_login_transactions
+      (id,state_hash,code_challenge,wechat_app_id,status,created_at,expires_at) VALUES (?,?,?,?,'pending',?,?)`
+    ).bind(loginId, await hashSecret(state), body.codeChallenge, config.appId, now, expiresAt).run();
     const authorization = new URL("https://open.weixin.qq.com/connect/qrconnect");
     authorization.search = new URLSearchParams({
       appid: config.appId,
@@ -167,35 +241,61 @@ async function authRoute(request, env, path, { json: json2, error: error2, readB
       state
     }).toString();
     authorization.hash = "wechat_redirect";
-    return json2({ loginId, authorizationUrl: authorization.href, expiresAt: new Date(expiresAt).toISOString(), pollIntervalMs: 2e3 }, 201);
+    return json2(
+      {
+        loginId,
+        authorizationUrl: authorization.href,
+        expiresAt: new Date(expiresAt).toISOString(),
+        pollIntervalMs: 2e3
+      },
+      201
+    );
   }
   if (path === "/api/auth/wechat/callback" && request.method === "GET") {
     const url = new URL(request.url), states = url.searchParams.getAll("state"), codes = url.searchParams.getAll("code");
-    if (states.length !== 1 || !RANDOM_VALUE.test(states[0])) return callbackPage("\u767B\u5F55\u8BF7\u6C42\u5DF2\u5931\u6548\uFF0C\u8BF7\u56DE\u5230\u4E09\u665A\u52A9\u624B\u91CD\u65B0\u767B\u5F55\u3002", 400);
-    const transaction = await env.DB.prepare(`UPDATE auth_login_transactions SET status='processing'
-      WHERE state_hash=? AND wechat_app_id=? AND status='pending' AND expires_at>? RETURNING id`).bind(await hashSecret(states[0]), config.appId, Date.now()).first();
+    if (states.length !== 1 || !RANDOM_VALUE.test(states[0]))
+      return callbackPage("\u767B\u5F55\u8BF7\u6C42\u5DF2\u5931\u6548\uFF0C\u8BF7\u56DE\u5230\u4E09\u665A\u52A9\u624B\u91CD\u65B0\u767B\u5F55\u3002", 400);
+    const transaction = await env.DB.prepare(
+      `UPDATE auth_login_transactions SET status='processing'
+      WHERE state_hash=? AND wechat_app_id=? AND status='pending' AND expires_at>? RETURNING id`
+    ).bind(await hashSecret(states[0]), config.appId, Date.now()).first();
     if (!transaction) return callbackPage("\u767B\u5F55\u8BF7\u6C42\u5DF2\u5931\u6548\uFF0C\u8BF7\u56DE\u5230\u4E09\u665A\u52A9\u624B\u91CD\u65B0\u767B\u5F55\u3002", 400);
     if (codes.length !== 1 || !/^[A-Za-z0-9_-]{1,256}$/.test(codes[0])) {
       await markFailed(env.DB, transaction.id);
       return callbackPage("\u5FAE\u4FE1\u6388\u6743\u672A\u5B8C\u6210\uFF0C\u8BF7\u56DE\u5230\u4E09\u665A\u52A9\u624B\u91CD\u65B0\u767B\u5F55\u3002", 400);
     }
-    const claim = await env.DB.prepare("INSERT OR IGNORE INTO auth_oauth_codes (code_hash,expires_at) VALUES (?,?)").bind(await hashSecret(`${config.appId}\0${codes[0]}`), Date.now() + CODE_TTL_MS).run();
+    const claim = await env.DB.prepare(
+      "INSERT OR IGNORE INTO auth_oauth_codes (code_hash,expires_at) VALUES (?,?)"
+    ).bind(await hashSecret(`${config.appId}\0${codes[0]}`), Date.now() + CODE_TTL_MS).run();
     if (!claim.meta?.changes) {
       await markFailed(env.DB, transaction.id);
       return callbackPage("\u767B\u5F55\u8BF7\u6C42\u5DF2\u5931\u6548\uFF0C\u8BF7\u56DE\u5230\u4E09\u665A\u52A9\u624B\u91CD\u65B0\u767B\u5F55\u3002", 400);
     }
     try {
       const endpoint = new URL("https://api.weixin.qq.com/sns/oauth2/access_token");
-      endpoint.search = new URLSearchParams({ appid: config.appId, secret: config.appSecret, code: codes[0], grant_type: "authorization_code" }).toString();
-      const response = await fetch(endpoint, { redirect: "error", signal: AbortSignal.timeout(1e4) });
+      endpoint.search = new URLSearchParams({
+        appid: config.appId,
+        secret: config.appSecret,
+        code: codes[0],
+        grant_type: "authorization_code"
+      }).toString();
+      const response = await fetch(endpoint, {
+        redirect: "error",
+        signal: AbortSignal.timeout(1e4)
+      });
       if (!response.ok) throw new Error("Provider rejected authorization");
       const result = await response.json();
-      if (result.errcode || typeof result.openid !== "string" || !result.openid || result.openid.length > 128 || typeof result.access_token !== "string" || !result.access_token || typeof result.scope !== "string" || !result.scope.split(",").includes("snsapi_login")) throw new Error("Invalid provider response");
+      if (result.errcode || typeof result.openid !== "string" || !result.openid || result.openid.length > 128 || typeof result.access_token !== "string" || !result.access_token || typeof result.scope !== "string" || !result.scope.split(",").includes("snsapi_login"))
+        throw new Error("Invalid provider response");
       const subjectHash = await hashSecret(`${config.appId}\0${result.openid}`);
-      await env.DB.prepare("INSERT OR IGNORE INTO auth_users (id,wechat_subject_hash,created_at) VALUES (?,?,?)").bind(crypto.randomUUID(), subjectHash, Date.now()).run();
+      await env.DB.prepare(
+        "INSERT OR IGNORE INTO auth_users (id,wechat_subject_hash,created_at) VALUES (?,?,?)"
+      ).bind(crypto.randomUUID(), subjectHash, Date.now()).run();
       const user = await env.DB.prepare("SELECT id FROM auth_users WHERE wechat_subject_hash=?").bind(subjectHash).first();
-      const saved = await env.DB.prepare(`UPDATE auth_login_transactions SET status='ready',owner_id=?
-        WHERE id=? AND status='processing' AND expires_at>?`).bind(user.id, transaction.id, Date.now()).run();
+      const saved = await env.DB.prepare(
+        `UPDATE auth_login_transactions SET status='ready',owner_id=?
+        WHERE id=? AND status='processing' AND expires_at>?`
+      ).bind(user.id, transaction.id, Date.now()).run();
       if (!saved.meta?.changes) return callbackPage("\u767B\u5F55\u8BF7\u6C42\u5DF2\u8FC7\u671F\uFF0C\u8BF7\u56DE\u5230\u4E09\u665A\u52A9\u624B\u91CD\u65B0\u767B\u5F55\u3002", 400);
       return callbackPage("\u5FAE\u4FE1\u767B\u5F55\u6210\u529F\uFF0C\u8BF7\u56DE\u5230\u4E09\u665A\u52A9\u624B\u3002\u6B64\u9875\u9762\u53EF\u4EE5\u5173\u95ED\u3002");
     } catch {
@@ -207,11 +307,16 @@ async function authRoute(request, env, path, { json: json2, error: error2, readB
     const body = await readBody2(request), transaction = await findTransaction(env.DB, body);
     if (!transaction) return error2(404, "login_not_found", "\u767B\u5F55\u8BF7\u6C42\u5DF2\u5931\u6548\uFF0C\u8BF7\u91CD\u65B0\u767B\u5F55\u3002");
     if (path.endsWith("/poll")) {
-      return json2({ status: transaction.status === "processing" ? "pending" : transaction.status, expiresAt: new Date(transaction.expiresAt).toISOString() });
+      return json2({
+        status: transaction.status === "processing" ? "pending" : transaction.status,
+        expiresAt: new Date(transaction.expiresAt).toISOString()
+      });
     }
     if (transaction.status !== "ready") return error2(409, "login_not_ready", "\u5FAE\u4FE1\u6388\u6743\u5C1A\u672A\u5B8C\u6210\u3002");
-    const claimed = await env.DB.prepare(`DELETE FROM auth_login_transactions WHERE id=? AND code_challenge=?
-      AND status='ready' AND expires_at>? RETURNING owner_id AS ownerId`).bind(body.loginId, await hashSecret(body.codeVerifier), Date.now()).first();
+    const claimed = await env.DB.prepare(
+      `DELETE FROM auth_login_transactions WHERE id=? AND code_challenge=?
+      AND status='ready' AND expires_at>? RETURNING owner_id AS ownerId`
+    ).bind(body.loginId, await hashSecret(body.codeVerifier), Date.now()).first();
     if (!claimed) return error2(404, "login_not_found", "\u767B\u5F55\u8BF7\u6C42\u5DF2\u5931\u6548\uFF0C\u8BF7\u91CD\u65B0\u767B\u5F55\u3002");
     return issueSession(env.DB, claimed.ownerId, "wechat", null, json2);
   }
