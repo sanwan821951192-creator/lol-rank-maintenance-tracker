@@ -25,9 +25,9 @@
           <div class="auth-heading">
             <strong>个人维护记录</strong><span id="auth-user" class="auth-user" hidden></span>
           </div>
-          <p id="auth-status" role="status">正在连接登录服务…</p>
+          <p id="auth-status" role="status">正在恢复登录状态…</p>
         </div>
-        <form id="auth-form" class="auth-form">
+        <form id="auth-form" class="auth-form" hidden>
           <div class="auth-tabs" role="tablist" aria-label="登录或注册">
             <button id="auth-mode-login" type="button" role="tab" aria-selected="true">登录</button>
             <button id="auth-mode-register" type="button" role="tab" aria-selected="false">
@@ -61,13 +61,17 @@
               autocomplete="new-password"
               placeholder="请再次输入密码"
           /></label>
+          <label class="remember-login" for="remember-login">
+            <input id="remember-login" type="checkbox" checked />
+            <span>记住登录（下次自动登录）</span>
+          </label>
           <p id="auth-error" class="form-error" role="alert" hidden></p>
           <button id="auth-submit" class="button button-primary" type="submit" disabled>
             登录
           </button>
           <p class="auth-private-note">每个账号单独保存维护记录，登录后可在不同电脑查看。</p>
         </form>
-        <div class="auth-actions">
+        <div id="auth-actions" class="auth-actions" hidden>
           <button id="login-wechat" class="button button-light" type="button" disabled>
             微信登录 · 尚未配置</button
           ><button id="logout-button" class="button button-light" type="button" hidden>

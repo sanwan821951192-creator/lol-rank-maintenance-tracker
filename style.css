@@ -154,6 +154,24 @@ input::placeholder {
   font-size: 11px;
   line-height: 1.7;
 }
+.remember-login {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 16px;
+  color: var(--la-color-text-primary);
+  cursor: pointer;
+}
+.remember-login input {
+  appearance: auto;
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
 .auth-panel:has(#auth-form:not([hidden])) .auth-actions {
   grid-column: 1 / -1;
   border-top: 1px solid var(--line);
