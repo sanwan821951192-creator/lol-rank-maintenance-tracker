@@ -202,6 +202,8 @@ input::placeholder {
 .auth-user {
   color: var(--accent);
   font-size: 12px;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .auth-actions,
 .file-actions,
@@ -403,22 +405,7 @@ p {
   padding-left: 14px;
 }
 .account-identity {
-  display: flex;
-  gap: 10px;
-  align-items: center;
   min-width: 0;
-}
-.avatar {
-  display: grid;
-  place-items: center;
-  width: 36px;
-  height: 36px;
-  flex: none;
-  border-radius: 5px;
-  background: var(--hover);
-  border: 1px solid var(--line);
-  color: var(--accent);
-  font-weight: 600;
 }
 .identity-text {
   min-width: 0;

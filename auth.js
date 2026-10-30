@@ -173,11 +173,15 @@
         /* Invalid saved value. */
       }
       if (saved?.accessToken && Date.parse(saved.expiresAt) > Date.now()) {
+        const restoringAttempt = attempt
+        const restoringGeneration = generation
         try {
           const checked = await send('/api/auth/session', {}, saved.accessToken)
-          acceptSession({ ...saved, ...checked, tokenType: 'Bearer' })
+          if (attempt === restoringAttempt && generation === restoringGeneration)
+            acceptSession({ ...saved, ...checked, tokenType: 'Bearer' })
         } catch {
-          clearSession('登录已失效，请重新登录。')
+          if (attempt === restoringAttempt && generation === restoringGeneration)
+            clearSession('登录已失效，请重新登录。')
         }
       } else {
         try {
@@ -206,14 +210,8 @@
     if (submitting || !config.password?.enabled || session) return
     const username = $('#username').value.trim().toLowerCase()
     const password = $('#password').value
-    if (
-      !/^[a-z0-9][a-z0-9_.-]{2,31}$/.test(username) ||
-      password.length < 12 ||
-      password.length > 128
-    ) {
-      showError(
-        '账号需为 3–32 位英文字母、数字、下划线、点或横线，首位为字母或数字；密码需为 12–128 位。'
-      )
+    if (!username || !password.length) {
+      showError('请输入用户名和密码。')
       return
     }
     if (mode === 'register' && password !== $('#confirm-password').value) {

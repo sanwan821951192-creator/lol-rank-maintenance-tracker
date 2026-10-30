@@ -39,13 +39,10 @@
               id="username"
               name="username"
               required
-              minlength="3"
-              maxlength="32"
-              pattern="[A-Za-z0-9][A-Za-z0-9_.\-]{2,31}"
               autocomplete="username"
               autocapitalize="none"
               spellcheck="false"
-              placeholder="3–32 位英文字母、数字或 _ . -"
+              placeholder="请输入用户名（支持中文）"
           /></label>
           <label class="field" for="password"
             >密码<input
@@ -53,18 +50,14 @@
               name="password"
               type="password"
               required
-              minlength="12"
-              maxlength="128"
               autocomplete="current-password"
-              placeholder="请输入密码，至少 12 位"
+              placeholder="请输入密码"
           /></label>
           <label class="field" id="confirm-password-field" for="confirm-password" hidden
             >确认密码<input
               id="confirm-password"
               name="confirmPassword"
               type="password"
-              minlength="12"
-              maxlength="128"
               autocomplete="new-password"
               placeholder="请再次输入密码"
           /></label>

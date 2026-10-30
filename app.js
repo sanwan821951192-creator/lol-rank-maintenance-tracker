@@ -283,8 +283,6 @@
     const days = remaining(record)
     const card = element('article', `account-card${days === 0 ? ' urgent' : ''}`)
     const identity = element('div', 'account-identity')
-    const avatar = element('div', 'avatar', Array.from(record.name)[0].toUpperCase())
-    avatar.setAttribute('aria-hidden', 'true')
     const identityText = element('div', 'identity-text')
     identityText.append(
       element('div', 'account-name', record.name),
@@ -292,7 +290,7 @@
       element('div', 'row-tags', `${record.queue} · ${rankLabel(record)}`)
     )
     if (record.note) identityText.append(element('div', 'account-note', record.note))
-    identity.append(avatar, identityText)
+    identity.append(identityText)
     const remainingBlock = element('div', 'account-meta')
     const hasCandidate =
       record.candidateStatus === 'estimate' &&
